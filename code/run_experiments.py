@@ -1,29 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-run_experiments.py
-===================
-
-复现实验主脚本。
-
-对应论文：
-    Agarwal, A., Tan, Y. S., Ronen, O., Singh, C., & Yu, B. (2022).
-    Hierarchical Shrinkage: Improving the Accuracy and Interpretability
-    of Tree-Based Models. ICML 2022, PMLR 162:111-135.
-
-我们验证论文的两条核心实验结论（对应原文 Sec 4 & Table 1-3）：
-    (C1) 把 HS 应用到单棵 CART 决策树上，能显著提升测试集预测性能。
-    (C2) 把 HS 应用到随机森林 (RF) 的每一棵树上，也能提升性能，
-         但提升幅度通常不如对单棵树那么大。
-
-数据集（原论文使用真实世界临床/生物数据集，因本环境无网络访问，
-无法下载 imodels.get_clean_dataset 的数据，这里用功能相近的
-scikit-learn 内置经典 UCI 数据集替代，具体替代关系和影响见报告
-"结果比较与差异分析"部分）：
-    - breast_cancer : 二分类，30维特征，569样本（UCI Breast Cancer Wisconsin）
-    - wine          : 三分类，13维特征，178样本（UCI Wine）
-    - diabetes      : 回归，   10维特征，442样本（UCI糖尿病数据集，sklearn版本）
-"""
-
 import time
 import warnings
 import numpy as np
@@ -33,10 +7,8 @@ from sklearn.model_selection import train_test_split
 from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.metrics import roc_auc_score, accuracy_score, r2_score
-from sklearn.preprocessing import label_binarize
 
 from hs_lib import (
-    HSTreeClassifier, HSTreeRegressor,
     HSTreeClassifierCV, HSTreeRegressorCV,
 )
 

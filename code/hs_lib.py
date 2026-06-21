@@ -1,64 +1,13 @@
-# -*- coding: utf-8 -*-
-"""
-hs_lib.py
-=========
-
-从零复现论文核心算法:
-
-    Agarwal, A., Tan, Y. S., Ronen, O., Singh, C., & Yu, B. (2022).
-    "Hierarchical Shrinkage: Improving the Accuracy and Interpretability
-    of Tree-Based Models."
-    Proceedings of the 39th International Conference on Machine Learning
-    (ICML 2022), PMLR 162:111-135.  arXiv:2202.00858
-
-核心公式 (论文 Eq. 1, Hierarchical Shrinkage, HS):
-
-    设查询点 x 落入叶子节点 t_L, 其从根到叶的路径为 t_0(根) -> t_1 -> ... -> t_L(叶)。
-    N(t)  : 节点 t 包含的训练样本数（带权）。
-    E_t{y}: 节点 t 上训练响应的均值（回归）或类别比例（分类）。
-
-    原始树模型的预测可以写成"望远镜求和" (telescoping sum)：
-        f(x) = E_{t0}{y} + sum_{l=1}^{L} ( E_{tl}{y} - E_{t(l-1)}{y} )
-
-    HS 把每一项按照其【父节点】样本数 N(t_{l-1}) 做收缩：
-        f_lambda(x) = E_{t0}{y} + sum_{l=1}^{L}
-                        ( E_{tl}{y} - E_{t(l-1)}{y} ) / ( 1 + lambda / N(t_{l-1}) )      ... (1)
-
-    这等价于递归定义：
-        hs(root)  = raw(root)
-        hs(node)  = hs(parent) + ( raw(node) - raw(parent) ) * 1/(1+lambda/N(parent))
-
-论文中还给出了一个用于对比的朴素方法 leaf-based shrinkage (LBS, Eq. 2,
-类似 XGBoost / BART 中使用的收缩方式)，只收缩叶子到根这一步：
-
-        f^l_lambda(x) = E_{t0}{y} + ( E_{tL}{y} - E_{t0}{y} ) / ( 1 + lambda / N(tL) )   ... (2)
-
-本文件实现了 HS 和 LBS 两种方法，并提供与 scikit-learn 兼容的
-Classifier / Regressor 包装类（包括内置交叉验证选择 lambda 的 *CV 版本），
-可直接套在任意 sklearn 的树模型（DecisionTree*, RandomForest*,
-ExtraTrees*, GradientBoosting*）外面使用。
-"""
-
 import numpy as np
 from sklearn.base import BaseEstimator, ClassifierMixin, RegressorMixin, clone
 from sklearn.model_selection import KFold, StratifiedKFold
-from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
 from sklearn.metrics import roc_auc_score, r2_score
 
 
-# ----------------------------------------------------------------------
+
 # 1. 核心算法：对单棵树的 tree_ 结构计算每个节点的收缩后取值
-# ----------------------------------------------------------------------
-
 def _compute_node_values(tree_, lam, is_classifier, method="hs"):
-    """对一棵已经 fit 好的 sklearn 树 (tree_ = estimator.tree_) 计算
-    每个节点收缩后的预测值，数组形状与 tree_.value 完全一致，
-    因此可以直接用 estimator.apply(X) 得到的叶子节点 id 做索引。
 
-    method: "hs"  -> Hierarchical Shrinkage (论文 Eq.1, 本文复现的核心方法)
-            "lbs" -> Leaf-Based Shrinkage   (论文 Eq.2, 对比基线)
-            "none"-> 不收缩，直接返回原始值（等价于普通 CART/RF）
-    """
     n_nodes = tree_.node_count
     children_left = tree_.children_left
     children_right = tree_.children_right
